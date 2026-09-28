@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DealMind | Enterprise AI Sales Agent</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-main: #f8fafc;
+            --bg-sidebar: #0f172a;
+            --text-sidebar: #94a3b8;
+            --text-sidebar-active: #ffffff;
+            --accent: #3b82f6;
+            --accent-light: #eff6ff;
+            --text-dark: #0f172a;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --success-bg: #d1fae5;
+            --danger: #ef4444;
+            --danger-bg: #fee2e2;
+            --warning: #f59e0b;
+            --warning-bg: #fef3c7;
+            --panel-bg: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { display: flex; height: 100vh; background-color: var(--bg-main); color: var(--text-dark); overflow: hidden; }
+        
+        /* Layout Grid */
+        .sidebar { width: 220px; background: var(--bg-sidebar); color: var(--text-sidebar); display: flex; flex-direction: column; flex-shrink: 0; z-index: 10; }
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .header { height: 50px; background: var(--panel-bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 1.5rem; flex-shrink: 0; }
+        .content-area { flex: 1; display: flex; padding: 1rem; gap: 1rem; overflow: hidden; }
+        
+        /* Sidebar Styles */
+        .brand { padding: 1rem 1.5rem; font-size: 1.2rem; font-weight: 700; color: white; display: flex; align-items: center; gap: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .nav-items { padding: 0.8rem; display: flex; flex-direction: column; gap: 0.2rem; }
+        .nav-item { padding: 0.6rem 0.8rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; font-weight: 500; transition: 0.2s; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
+        .nav-item.active { background: var(--accent); color: white; }
+        
+        .top-search { width: 300px; padding: 0.4rem 0.8rem; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-main); outline: none; transition: 0.2s; font-size: 0.85rem; }
+        .top-search:focus { border-color: var(--accent); width: 400px; background: white; }
+        
+        /* ---------------------------------------------------
+           HOME TAB (CHAT)
+           --------------------------------------------------- */
+        #home-view { flex: 1; display: flex; gap: 1rem; overflow: hidden; }
+        
+        /* Left Panel (Deals List) */
+        .left-col { width: 280px; display: flex; flex-direction: column; gap: 0.8rem; overflow-y: auto; flex-shrink: 0; }
+        .welcome-banner { background: linear-gradient(135deg, #e0e7ff 0%, #eff6ff 100%); border-radius: 8px; padding: 1rem; flex-shrink:0; }
+        .welcome-banner h2 { font-size: 1.1rem; font-weight: 700; color: #1e3a8a; margin-bottom: 0.2rem; }
+        .welcome-banner p { font-size: 0.8rem; color: #3b82f6; }
+        
+        .deal-card { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem; cursor: pointer; transition: all 0.2s ease; position: relative; overflow: hidden; }
+        .deal-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow); }
+        .deal-card.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59,130,246,0.3); }
+        
+        /* Expanded deal details inside card */
+        .deal-card .expanded-details { display: none; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid var(--border); font-size: 0.75rem; }
+        .deal-card.active .expanded-details { display: block; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .deal-card h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.2rem; color: var(--text-dark); }
+        .deal-card .deal-subtitle { font-size: 0.75rem; color: var(--text-light); font-weight: 500; }
+        
+        .deal-tag { position: absolute; top: 0.8rem; right: 0.8rem; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .tag-won { background: var(--success-bg); color: var(--success); }
+        .tag-stuck { background: var(--danger-bg); color: var(--danger); }
+        .tag-other { background: var(--bg-main); color: var(--text-light); }
+
+        .blocker-box { background: var(--danger-bg); color: #991b1b; padding: 0.6rem; border-radius: 4px; margin-top: 0.4rem; border: 1px solid #f87171; }
+        .success-box { background: var(--success-bg); color: #065f46; padding: 0.6rem; border-radius: 4px; margin-top: 0.4rem; border: 1px solid #34d399; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 0.2rem; }
+
+        /* Center Panel (Chat) */
+        .center-col { flex: 1; display: flex; flex-direction: column; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+        .chat-header { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #f8fafc; flex-shrink: 0; }
+        .chat-header h3 { font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+        .chat-messages { flex: 1; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; background: white; }
+        
+        .msg-row { display: flex; gap: 0.6rem; max-width: 98%; }
+        .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
+        .msg-row.ai { align-self: flex-start; }
+        
+        .avatar { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: white; flex-shrink: 0; }
+        .avatar-ai { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); box-shadow: 0 2px 4px rgba(37,99,235,0.2); }
+        .avatar-user { background: var(--text-dark); }
+        
+        .msg-bubble { padding: 0.6rem 0.85rem; border-radius: 8px; font-size: 0.85rem; line-height: 1.4; color: var(--text-dark); }
+        .msg-row.user .msg-bubble { background: var(--text-dark); color: white; border-top-right-radius: 2px; }
+        .msg-row.ai .msg-bubble { background: #f8fafc; border: 1px solid var(--border); border-top-left-radius: 2px; }
+        
+        .chat-input-area { padding: 0.75rem; border-top: 1px solid var(--border); background: white; flex-shrink: 0; }
+        .chat-input-box { display: flex; border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem; background: var(--bg-main); transition: 0.2s; }
+        .chat-input-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); background: white; }
+        .chat-input-box input { flex: 1; border: none; background: transparent; outline: none; padding: 0.5rem; font-size: 0.95rem; }
+        .send-btn { background: var(--accent); color: white; border: none; border-radius: 6px; padding: 0.5rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: 0.2s; }
+        .send-btn:hover { background: #2563eb; transform: scale(1.02); }
+
+        /* Proposal Action Buttons */
+        .action-widget { margin-top: 1rem; padding: 1rem; background: white; border: 1px solid var(--border); border-radius: 8px; display: flex; gap: 1rem; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .btn-accept { background: var(--success); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; flex: 1; text-align: center; }
+        .btn-accept:hover { background: #059669; }
+        .btn-reject { background: white; color: var(--danger); border: 1px solid var(--danger); padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; flex: 1; text-align: center; }
+        .btn-reject:hover { background: var(--danger-bg); }
+
+        /* Right Panel (Hindsight Status) */
+        .right-col { width: 280px; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; flex-shrink: 0; }
+        .status-card { background: var(--success-bg); border: 1px solid rgba(16,185,129,0.2); border-radius: 10px; padding: 1.2rem; display: flex; gap: 1rem; align-items: flex-start; }
+        .status-icon { color: var(--success); }
+        .status-text h4 { color: #065f46; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.2rem; }
+        .status-text p { color: #047857; font-size: 0.8rem; line-height: 1.4; }
+        .memory-card { background: var(--panel-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem; }
+        .memory-card h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; }
+        .memory-item { font-size: 0.85rem; color: var(--text-dark); line-height: 1.5; padding: 1rem; background: var(--bg-main); border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 0.8rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+
+        /* ---------------------------------------------------
+           DEALS DIRECTORY TAB
+           --------------------------------------------------- */
+        #deals-view { display: none; flex-direction: column; padding: 2rem; background: white; border-radius: 12px; border: 1px solid var(--border); flex: 1; overflow-y: auto; }
+        .deals-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
+        .deals-table th, .deals-table td { padding: 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+        .deals-table th { background: var(--bg-main); font-weight: 600; color: var(--text-light); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; position: sticky; top: 0; }
+        .deals-table tr:hover { background: #f8fafc; }
+        
+        /* ---------------------------------------------------
+           ANALYTICS TAB
+           --------------------------------------------------- */
+        #analytics-view { display: none; flex-direction: column; padding: 2rem; background: white; border-radius: 12px; border: 1px solid var(--border); flex: 1; overflow-y: auto; }
+        .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem; }
+        .chart-container { background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); }
+        
+        /* ---------------------------------------------------
+           MEMORY TAB
+           --------------------------------------------------- */
+        #memory-view { display: none; flex-direction: column; padding: 2rem; background: white; border-radius: 12px; border: 1px solid var(--border); flex: 1; overflow-y: auto; }
+        
+        /* Markdown overrides */
+        .msg-bubble p { margin-bottom: 0.8rem; }
+        .msg-bubble ul, .msg-bubble ol { margin-left: 1.5rem; margin-bottom: 0.8rem; }
+        .msg-bubble li { margin-bottom: 0.4rem; }
+        .msg-bubble p:last-child, .msg-bubble ul:last-child { margin-bottom: 0; }
+        .msg-bubble strong { color: #0f172a; }
+        
+        .loading-dots:after { content: '.'; animation: dots 1.5s steps(5, end) infinite;}
+        @keyframes dots { 0%, 20% { color: rgba(0,0,0,0); } 40% { color: var(--text-dark); } 60% { text-shadow: .25em 0 0 var(--text-dark); } 80%, 100% { text-shadow: .25em 0 0 var(--text-dark), .5em 0 0 var(--text-dark); } }
+    </style>
+</head>
+<body>
+    
+    <div class="sidebar">
+        <div class="brand">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--accent)"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            DealMind
+        </div>
+        <div class="nav-items">
+            <div class="nav-item active" onclick="switchTab('home', this)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                AI Sales Desk
+            </div>
+            <div class="nav-item" onclick="switchTab('deals', this)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                Deals Directory
+            </div>
+            <div class="nav-item" onclick="switchTab('analytics', this)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                Analytics
+            </div>
+            <div class="nav-item" onclick="switchTab('memory', this)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l2-9 5 18 3-9h5"></path></svg>
+                Hindsight Memory
+            </div>
+        </div>
+    </div>
+    
+    <div class="main-wrapper">
+        <div class="header">
+            <input type="text" class="top-search" placeholder="Search accounts, contacts, or memories...">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--text-dark); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;">JD</div>
+            </div>
+        </div>
+        
+        <div class="content-area">
+            
+            <!-- HOME VIEW -->
+            <div id="home-view">
+                <!-- Left Panel (Deals) -->
+                <div class="left-col">
+                    <div class="welcome-banner">
+                        <h2>Hi, John! 👋</h2>
+                        <p>You have <strong id="stalled-count">0</strong> stalled deals. Let's unblock them.</p>
+                    </div>
+                    
+                    <div class="section-title">
+                        <span>Active Deals</span>
+                    </div>
+                    
+                    <div id="deals-list" style="display: flex; flex-direction: column; gap: 0.8rem;">
+                        <!-- Deals injected here -->
+                    </div>
+                </div>
+                
+                <!-- Center Panel (Chat) -->
+                <div class="center-col">
+                    <div class="chat-header">
+                        <h3 id="chat-title">DealMind Assistant</h3>
+                        <span id="typing-indicator" style="font-size: 0.85rem; color: var(--text-light); display: none;">AI is synthesizing strategy<span class="loading-dots"></span></span>
+                    </div>
+                    
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="msg-row ai">
+                            <div class="avatar avatar-ai">AI</div>
+                            <div class="msg-bubble">
+                                <p>Welcome to your DealMind workspace. I have real-time access to your pipeline and our organization's <strong>Vectorize Hindsight</strong> memory bank.</p>
+                                <p>Click any stalled deal on the left to review its blockers, and ask me how we can push it to Closed Won based on past successful strategies.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chat-input-area">
+                        <div class="chat-input-box">
+                            <input type="text" id="query" placeholder="Ask for a strategy or tactical play..." onkeypress="if(event.key === 'Enter') sendQuery()">
+                            <button class="send-btn" onclick="sendQuery()">
+                                Send <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Panel (Context) -->
+                <div class="right-col">
+                    <div class="status-card">
+                        <div class="status-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        </div>
+                        <div class="status-text">
+                            <h4>Hindsight Active</h4>
+                            <p>Live connected to Vectorize. Past wins are shaping your recommendations.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="memory-card">
+                        <h4>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            Context Recalled
+                        </h4>
+                        <div id="memory-list">
+                            <p style="font-size: 0.85rem; color: var(--text-light); font-style: italic;">Select a deal and ask a question to see semantic memory matches.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DEALS DIRECTORY VIEW -->
+            <div id="deals-view">
+                <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">Deals Directory</h2>
+                <p style="color: var(--text-light); margin-bottom: 1rem;">Complete overview of the 20-account pipeline.</p>
+                <table class="deals-table">
+                    <thead>
+                        <tr>
+                            <th>Company</th>
+                            <th>Value</th>
+                            <th>Stage</th>
+                            <th>Contact</th>
+                            <th>Status/Blocker</th>
+                        </tr>
+                    </thead>
+                    <tbody id="directory-tbody">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ANALYTICS VIEW -->
+            <div id="analytics-view">
+                <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">Pipeline Analytics</h2>
+                <p style="color: var(--text-light);">Visualizing revenue distribution and stage velocity.</p>
+                
+                <div class="chart-grid">
+                    <div class="chart-container">
+                        <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--text-dark);">Revenue by Stage</h3>
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--text-dark);">Deal Distribution</h3>
+                        <canvas id="funnelChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MEMORY VIEW -->
+            <div id="memory-view">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <div>
+                        <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M2 12h4l2-9 5 18 3-9h5"></path></svg>
+                            Hindsight Enterprise Memory Bank
+                        </h2>
+                        <p style="color: var(--text-light);">These proven strategies are permanently indexed in Vectorize and inform future AI recommendations.</p>
+                    </div>
+                    <span style="background: var(--accent-light); color: var(--accent); padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem;">Vectorize Connected</span>
+                </div>
+                
+                <div id="full-memory-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <p style="color: var(--text-light);">Loading memories...</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let selectedDealId = null;
+        let allDeals = [];
+
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            el.classList.add('active');
+            
+            // Hide all views
+            document.getElementById('home-view').style.display = 'none';
+            document.getElementById('deals-view').style.display = 'none';
+            document.getElementById('analytics-view').style.display = 'none';
+            document.getElementById('memory-view').style.display = 'none';
+            
+            // Show target
+            if (tabId === 'home') {
+                document.getElementById('home-view').style.display = 'flex';
+            } else if (tabId === 'deals') {
+                document.getElementById('deals-view').style.display = 'flex';
+            } else if (tabId === 'analytics') {
+                document.getElementById('analytics-view').style.display = 'flex';
+                initCharts();
+            } else if (tabId === 'memory') {
+                document.getElementById('memory-view').style.display = 'flex';
+                loadMemories();
+            }
+        }
+
+        async function loadDeals() {
+            try {
+                let res = await fetch('/api/deals');
+                allDeals = await res.json();
+                
+                // Update Stalled Count
+                let stalled = allDeals.filter(d => d.stage === 'Stalled').length;
+                document.getElementById('stalled-count').innerText = stalled;
+                
+                renderDealsList();
+                renderDealsDirectory();
+            } catch (e) {
+                console.error("Failed to load deals:", e);
+            }
+        }
+
+        function renderDealsList() {
+            document.getElementById('deals-list').innerHTML = allDeals.map(d => {
+                let isWon = d.stage === 'Closed Won';
+                let isStuck = d.stage === 'Stalled';
+                
+                let tagClass = isWon ? 'tag-won' : (isStuck ? 'tag-stuck' : 'tag-other');
+                let tagText = isWon ? 'WON' : (isStuck ? 'STALLED' : d.stage.toUpperCase());
+                
+                // Detailed expansion content
+                let detailsHtml = '';
+                if (isStuck && d.blocker) {
+                    detailsHtml = `
+                        <div class="expanded-details">
+                            <div class="info-row"><span>Contact:</span> <strong>${d.contact_role}</strong></div>
+                            <div class="info-row"><span>Value:</span> <strong>$${d.value.toLocaleString()}</strong></div>
+                            <div class="blocker-box"><strong>Current Blocker:</strong><br>${d.blocker}</div>
+                        </div>
+                    `;
+                } else if (isWon && d.success_reason) {
+                    detailsHtml = `
+                        <div class="expanded-details">
+                            <div class="info-row"><span>Contact:</span> <strong>${d.contact_role}</strong></div>
+                            <div class="info-row"><span>Value:</span> <strong>$${d.value.toLocaleString()}</strong></div>
+                            <div class="success-box"><strong>Winning Strategy:</strong><br>${d.success_reason}</div>
+                        </div>
+                    `;
+                } else {
+                    detailsHtml = `
+                        <div class="expanded-details">
+                            <div class="info-row"><span>Contact:</span> <strong>${d.contact_role}</strong></div>
+                            <div class="info-row"><span>Value:</span> <strong>$${d.value.toLocaleString()}</strong></div>
+                        </div>
+                    `;
+                }
+                
+                return `
+                <div class="deal-card ${selectedDealId === d.id ? 'active' : ''}" onclick="selectDeal('${d.id}', '${d.company.replace(/'/g, "\\'")}')">
+                    <span class="deal-tag ${tagClass}">${tagText}</span>
+                    <h4>${d.company}</h4>
+                    <span class="deal-subtitle">$${d.value.toLocaleString()}</span>
+                    ${detailsHtml}
+                </div>
+                `;
+            }).join('');
+        }
+
+        function renderDealsDirectory() {
+            let tbody = document.getElementById('directory-tbody');
+            if(!tbody) return;
+            
+            tbody.innerHTML = allDeals.map(d => {
+                let isWon = d.stage === 'Closed Won';
+                let isStuck = d.stage === 'Stalled';
+                let isApplied = d.stage === 'Strategy Applied';
+                let badgeHtml = isWon ? `<span class="deal-tag tag-won" style="position:static">WON</span>` : (isStuck ? `<span class="deal-tag tag-stuck" style="position:static">STALLED</span>` : (isApplied ? `<span class="deal-tag" style="background:#dbeafe; color:#1e40af; position:static">APPLIED</span>` : `<span class="deal-tag tag-other" style="position:static">${d.stage.toUpperCase()}</span>`));
+                
+                let desc = "-";
+                if(isStuck && d.blocker) desc = `<span style="color:var(--danger)">Blocker: ${d.blocker}</span>`;
+                else if ((isWon || isApplied) && d.success_reason) desc = `<span style="color:var(--success)">Win/Applied Reason: ${d.success_reason}</span>`;
+                
+                return `
+                <tr>
+                    <td style="font-weight:600">${d.company}</td>
+                    <td>$${d.value.toLocaleString()}</td>
+                    <td>${badgeHtml}</td>
+                    <td>${d.contact_role}</td>
+                    <td style="font-size:0.85rem">${desc}</td>
+                </tr>
+                `;
+            }).join('');
+        }
+
+        function selectDeal(id, name) {
+            selectedDealId = id;
+            document.getElementById('chat-title').innerText = "Strategy Session: " + name;
+            renderDealsList();
+            
+            // Auto focus input
+            let input = document.getElementById('query');
+            let dealObj = allDeals.find(d => d.id === id);
+            
+            if (dealObj && dealObj.stage === 'Stalled' && dealObj.blocker) {
+                input.value = `How do we unblock the deal? Blocker: ${dealObj.blocker}`;
+            } else {
+                input.value = "";
+            }
+            
+            if (dealObj && dealObj.stage === 'Strategy Applied') {
+                let widgetId = 'outcome-' + Date.now();
+                let aiMsgDiv = appendMessage('ai', '', widgetId);
+                let encCompany = dealObj.company.replace(/'/g, "\\'");
+                aiMsgDiv.querySelector('.msg-bubble').innerHTML = `
+                    <div style="background:var(--bg-main); border:1px solid var(--border); padding:1rem; border-radius:8px;">
+                        <strong>Feedback Required:</strong> We previously saved a strategy to Hindsight for this deal. What was the final outcome?
+                        <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+                            <button class="btn-accept" onclick="recordOutcome('${encCompany}', 'Closed Won', this.parentNode.parentNode)">
+                                ✅ Strategy Succeeded (Deal Won)
+                            </button>
+                            <button class="btn-reject" onclick="recordOutcome('${encCompany}', 'Closed Lost', this.parentNode.parentNode)">
+                                ❌ Strategy Failed (Deal Lost)
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            input.focus();
+        }
+
+        function appendMessage(sender, text, id = null) {
+            let chat = document.getElementById('chat-messages');
+            let div = document.createElement('div');
+            div.className = `msg-row ${sender}`;
+            if (id) div.id = id;
+            
+            let avatar = sender === 'ai' ? `<div class="avatar avatar-ai">AI</div>` : `<div class="avatar avatar-user">You</div>`;
+            
+            div.innerHTML = `
+                ${avatar}
+                <div class="msg-bubble">${marked.parse(text || " ")}</div>
+            `;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+            return div;
+        }
+        
+        async function applySolution(company, encodedSolution, widgetElement) {
+            widgetElement.innerHTML = `<p style="color:var(--success); font-weight:600; text-align:center;">Saving to Vectorize Hindsight...</p>`;
+            try {
+                let res = await fetch('/api/save_solution', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        deal_company: company, 
+                        solution_text: decodeURIComponent(encodedSolution)
+                    })
+                });
+                widgetElement.innerHTML = `
+                    <div style="background:var(--success-bg); color:var(--success); padding:1rem; border-radius:8px; border:1px solid #34d399; text-align:center;">
+                        <strong>🏆 Success!</strong><br>Strategy saved to Hindsight memory and Deal stage updated to 'Strategy Applied'.
+                    </div>
+                `;
+                await loadDeals();
+            } catch(e) {
+                widgetElement.innerHTML = `<p style="color:var(--danger);">Error saving solution.</p>`;
+            }
+        }
+
+        function rejectSolution(widgetElement) {
+            widgetElement.innerHTML = `
+                <div style="background:var(--danger-bg); color:var(--danger); padding:1rem; border-radius:8px; text-align:center;">
+                    <em>Solution rejected. Generating alternative market-based approach...</em>
+                </div>
+            `;
+            
+            // Automatically trigger a new query asking for a different approach
+            let input = document.getElementById('query');
+            input.value = "The previous solution was rejected. Please generate a different, market-based sales solution without relying on that specific history.";
+            sendQuery();
+        }
+
+        async function recordOutcome(company, outcome, widgetElement) {
+            widgetElement.innerHTML = `<p style="color:var(--text-light); text-align:center;">Recording outcome...</p>`;
+            try {
+                await fetch('/api/update_outcome', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        deal_company: company, 
+                        outcome: outcome
+                    })
+                });
+                widgetElement.innerHTML = `
+                    <div style="background:var(--success-bg); color:var(--success); padding:1rem; border-radius:8px; border:1px solid #34d399; text-align:center;">
+                        <strong>Outcome Recorded!</strong> Deal has been moved to ${outcome}.
+                    </div>
+                `;
+                await loadDeals();
+            } catch(e) {
+                widgetElement.innerHTML = `<p style="color:var(--danger);">Error updating outcome.</p>`;
+            }
+        }
+
+        async function sendQuery() {
+            let input = document.getElementById('query');
+            let query = input.value.trim();
+            if (!query) return;
+            
+            appendMessage('user', query);
+            input.value = '';
+            
+            document.getElementById('typing-indicator').style.display = 'inline';
+            document.getElementById('memory-list').innerHTML = '<p style="font-size: 0.85rem; color: var(--text-light); font-style:italic;">Querying Vectorize semantic search...</p>';
+            
+            let aiMsgId = 'msg-' + Date.now();
+            let aiMsgDiv = appendMessage('ai', '', aiMsgId);
+            let bubble = aiMsgDiv.querySelector('.msg-bubble');
+            let fullText = "";
+
+            try {
+                let res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({query: query, deal_id: selectedDealId})
+                });
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, {stream: true});
+                    let lines = buffer.split('\n\n');
+                    buffer = lines.pop(); 
+                    
+                    for (let line of lines) {
+                        if (line.startsWith('data: ')) {
+                            let dataStr = line.substring(6);
+                            try {
+                                let payload = JSON.parse(dataStr);
+                                
+                                if (payload.type === 'memory') {
+                                    let memHtml = payload.memories.length > 0 
+                                        ? payload.memories.map(m => `<div class="memory-item">${m}</div>`).join('')
+                                        : '<p style="font-size: 0.85rem; color: var(--text-light);">No direct past memories found. Synthesizing novel strategy.</p>';
+                                    document.getElementById('memory-list').innerHTML = memHtml;
+                                } else if (payload.type === 'chunk') {
+                                    fullText += payload.content;
+                                    bubble.innerHTML = marked.parse(fullText);
+                                    document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
+                                } else if (payload.type === 'solution_proposed') {
+                                    let encSol = encodeURIComponent(payload.solution_text);
+                                    let widgetId = 'action-' + Date.now();
+                                    
+                                    bubble.innerHTML += `
+                                        <div id="${widgetId}" class="action-widget">
+                                            <button class="btn-accept" onclick="applySolution('${payload.deal.replace(/'/g, "\\'")}', '${encSol}', document.getElementById('${widgetId}'))">
+                                                🧠 Accept Strategy & Save to Hindsight
+                                            </button>
+                                            <button class="btn-reject" onclick="rejectSolution(document.getElementById('${widgetId}'))">
+                                                ❌ Reject Solution
+                                            </button>
+                                        </div>
+                                    `;
+                                    document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
+                                }
+                                
+                            } catch (e) {
+                                console.error("Parse error", e);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                bubble.innerHTML = `<span style="color:red">Connection error.</span>`;
+            }
+            document.getElementById('typing-indicator').style.display = 'none';
+        }
+
+        async function loadMemories() {
+            let list = document.getElementById('full-memory-list');
+            if(!list) return;
+            list.innerHTML = '<p style="color:var(--text-light)">Retrieving index from Vectorize...</p>';
+            try {
+                let res = await fetch('/api/memories');
+                let memories = await res.json();
+                if(memories.length === 0) {
+                    list.innerHTML = '<p>No learning history found.</p>';
+                } else {
+                    let tableHtml = `
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Original Deal</th>
+                                <th>Customer Objection</th>
+                                <th>Strategy Used</th>
+                                <th>Outcome</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    `;
+                    
+                    tableHtml += memories.map(m => {
+                        let isWon = m.stage === 'Closed Won';
+                        let isApplied = m.stage === 'Strategy Applied';
+                        let badge = isWon ? `<span class="deal-tag tag-won" style="position:static">WON</span>` : (isApplied ? `<span class="deal-tag" style="background:#dbeafe; color:#1e40af; position:static">APPLIED</span>` : `<span class="deal-tag tag-other" style="position:static">${m.stage.toUpperCase()}</span>`);
+                        return `
+                        <tr>
+                            <td style="font-weight:600">${m.company}</td>
+                            <td>${m.blocker || "N/A"}</td>
+                            <td style="font-size:0.9rem">${marked.parseInline(m.success_reason)}</td>
+                            <td>${badge}</td>
+                        </tr>
+                        `;
+                    }).join('');
+                    
+                    tableHtml += `</tbody></table>`;
+                    list.innerHTML = tableHtml;
+                }
+            } catch(e) {
+                list.innerHTML = '<p style="color:var(--danger)">Error loading memories.</p>';
+            }
+        }
+        
+        let chartsInitialized = false;
+        function initCharts() {
+            if(chartsInitialized) return;
+            chartsInitialized = true;
+            
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+            script.onload = () => {
+                let stages = {};
+                let rev = {};
+                allDeals.forEach(d => {
+                    stages[d.stage] = (stages[d.stage] || 0) + 1;
+                    rev[d.stage] = (rev[d.stage] || 0) + d.value;
+                });
+                
+                new Chart(document.getElementById('revenueChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(rev),
+                        datasets: [{
+                            label: 'Pipeline Value ($)',
+                            data: Object.values(rev),
+                            backgroundColor: '#3b82f6',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: { responsive: true, plugins: { legend: { display: false } } }
+                });
+                
+                new Chart(document.getElementById('funnelChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(stages),
+                        datasets: [{
+                            data: Object.values(stages),
+                            backgroundColor: ['#10b981', '#f59e0b', '#3b82f6', '#ef4444'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: { responsive: true, cutout: '75%' }
+                });
+            };
+            document.head.appendChild(script);
+        }
+
+        // Init
+        loadDeals();
+    </script>
+</body>
+</html>
